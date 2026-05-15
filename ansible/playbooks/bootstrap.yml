@@ -1,0 +1,89 @@
+---
+- name: Bootstrap kubeconfig for EKS cluster
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Ensure aws CLI is installed
+      ansible.builtin.command: aws --version
+      register: aws_version
+      changed_when: false
+
+    - name: Ensure kubectl is installed
+      ansible.builtin.command: kubectl version --client=true -o yaml
+      register: kubectl_version
+      changed_when: false
+
+    - name: Detect host OS for helm download
+      ansible.builtin.command: uname -s
+      register: uname_s
+      changed_when: false
+
+    - name: Detect host architecture for helm download
+      ansible.builtin.command: uname -m
+      register: uname_m
+      changed_when: false
+
+    - name: Resolve helm OS/arch slugs
+      ansible.builtin.set_fact:
+        helm_os: "{{ uname_s.stdout | lower }}"
+        helm_arch: "{{ 'arm64' if uname_m.stdout in ['arm64', 'aarch64'] else 'amd64' }}"
+
+    - name: Ensure project bin/ exists
+      ansible.builtin.file:
+        path: "{{ helm_binary_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Check for pinned helm binary
+      ansible.builtin.stat:
+        path: "{{ helm_binary_path }}"
+      register: helm_stat
+
+    - name: Download helm v{{ helm_version }} archive
+      ansible.builtin.get_url:
+        url: "https://get.helm.sh/helm-v{{ helm_version }}-{{ helm_os }}-{{ helm_arch }}.tar.gz"
+        dest: "/tmp/helm-v{{ helm_version }}-{{ helm_os }}-{{ helm_arch }}.tar.gz"
+        mode: "0644"
+      when: not helm_stat.stat.exists
+
+    - name: Extract helm archive (use BSD/GNU tar directly to avoid unarchive module's GNU-tar requirement)
+      ansible.builtin.command:
+        cmd: tar -xzf /tmp/helm-v{{ helm_version }}-{{ helm_os }}-{{ helm_arch }}.tar.gz -C /tmp
+        creates: "/tmp/{{ helm_os }}-{{ helm_arch }}/helm"
+      when: not helm_stat.stat.exists
+
+    - name: Install helm v{{ helm_version }} into project bin/
+      ansible.builtin.copy:
+        src: "/tmp/{{ helm_os }}-{{ helm_arch }}/helm"
+        dest: "{{ helm_binary_path }}"
+        mode: "0755"
+        remote_src: true
+      when: not helm_stat.stat.exists
+
+    - name: Verify pinned helm is v3
+      ansible.builtin.command: "{{ helm_binary_path }} version --short"
+      register: helm_pinned_version
+      changed_when: false
+
+    - name: Show pinned helm version
+      ansible.builtin.debug:
+        msg: "Using helm at {{ helm_binary_path }} -> {{ helm_pinned_version.stdout }}"
+
+    - name: Write kubeconfig entry for {{ cluster_name }}
+      ansible.builtin.command: >
+        aws eks update-kubeconfig
+        --name {{ cluster_name }}
+        --region {{ aws_region }}
+        --kubeconfig {{ kubeconfig_path }}
+      changed_when: true
+
+    - name: Verify cluster API is reachable
+      kubernetes.core.k8s_info:
+        kind: Node
+        kubeconfig: "{{ kubeconfig_path }}"
+      register: nodes_info
+
+    - name: Show node count
+      ansible.builtin.debug:
+        msg: "Cluster reachable. Node count: {{ nodes_info.resources | length }}"

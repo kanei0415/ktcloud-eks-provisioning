@@ -1,0 +1,45 @@
+## macOS
+.DS_Store
+
+## Editors
+.idea/
+.vscode/
+*.swp
+
+## Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+terraform/terraform.tfvars
+terraform/*.tfvars
+!terraform/terraform.tfvars.example
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform.tfstate.lock.info
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+## Ansible
+ansible/collections/
+ansible/bin/
+ansible/*.retry
+ansible/.vault_pass
+
+## Local kubeconfig copies
+kubeconfig
+*.kubeconfig
+
+## Secrets
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+.claude
+.ansible

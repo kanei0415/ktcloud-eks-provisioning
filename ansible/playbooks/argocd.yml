@@ -1,0 +1,70 @@
+---
+- name: Install ArgoCD and apply root Application
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Add Argo Helm repository
+      kubernetes.core.helm_repository:
+        binary_path: "{{ helm_binary_path }}"
+        name: "{{ argocd_helm_repo_name }}"
+        repo_url: "{{ argocd_helm_repo_url }}"
+
+    - name: Ensure argocd namespace exists
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ argocd_namespace }}"
+
+    - name: Install/upgrade ArgoCD Helm release
+      kubernetes.core.helm:
+        binary_path: "{{ helm_binary_path }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+        name: "{{ argocd_release_name }}"
+        chart_ref: "{{ argocd_chart_ref }}"
+        chart_version: "{{ argocd_chart_version }}"
+        release_namespace: "{{ argocd_namespace }}"
+        create_namespace: false
+        update_repo_cache: true
+        wait: true
+        wait_timeout: 10m
+        values_files:
+          - "{{ argocd_values_file }}"
+
+    - name: Wait for argocd-server Deployment to be Available
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        kind: Deployment
+        namespace: "{{ argocd_namespace }}"
+        name: "{{ argocd_release_name }}-server"
+      register: argocd_server
+      until: >
+        argocd_server.resources | length > 0 and
+        (argocd_server.resources[0].status.availableReplicas | default(0)) >= 1
+      retries: 30
+      delay: 10
+
+    - name: Apply ArgoCD root Application (App-of-Apps)
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition: "{{ lookup('template', '../templates/root-app.yaml.j2') | from_yaml }}"
+        apply: true
+
+    - name: Show how to fetch the initial admin password
+      ansible.builtin.debug:
+        msg: |
+          ArgoCD installed and root Application applied.
+
+          Initial admin password:
+            kubectl -n {{ argocd_namespace }} get secret argocd-initial-admin-secret \
+              -o jsonpath='{.data.password}' | base64 -d ; echo
+
+          UI port-forward (until an Ingress is available via Traefik):
+            kubectl -n {{ argocd_namespace }} port-forward svc/{{ argocd_release_name }}-server 8080:443
+
+          Then browse https://localhost:8080 (login: admin / <password above>).

@@ -1,0 +1,24 @@
+---
+aws_region: ap-northeast-2
+cluster_name: ktcloud-eks
+
+kubeconfig_path: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
+kube_context: "arn:aws:eks:{{ aws_region }}:{{ aws_account_id | default('') }}:cluster/{{ cluster_name }}"
+
+helm_version: "3.16.4"
+helm_binary_dir: "{{ playbook_dir }}/../bin"
+helm_binary_path: "{{ helm_binary_dir }}/helm"
+
+argocd_namespace: argocd
+argocd_helm_repo_name: argo
+argocd_helm_repo_url: https://argoproj.github.io/argo-helm
+argocd_chart_name: argo-cd
+argocd_chart_ref: "{{ argocd_helm_repo_name }}/{{ argocd_chart_name }}"
+argocd_chart_version: "7.7.10"
+argocd_release_name: argocd
+argocd_values_file: "{{ playbook_dir }}/../files/argocd-values.yaml"
+
+argocd_root_app_name: root-app
+argocd_manifest_repo_url: https://github.com/kanei0415/ktcloud-k8s-argocd-manifest.git
+argocd_manifest_repo_revision: HEAD
+argocd_root_path: Setup
