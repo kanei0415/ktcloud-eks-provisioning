@@ -1,0 +1,19 @@
+region          = "ap-northeast-2"
+project         = "ktcloud-eks"
+cluster_version = "1.31"
+
+vpc_cidr = "10.40.0.0/16"
+azs      = ["ap-northeast-2a", "ap-northeast-2b", "ap-northeast-2c"]
+
+fargate_namespaces = ["kube-system", "argocd"]
+
+nodegroup_instance_types = ["t3.medium"]
+nodegroup_min_size       = 2
+nodegroup_max_size       = 4
+nodegroup_desired_size   = 2
+
+tags = {
+  Project   = "ktcloud-eks"
+  ManagedBy = "terraform"
+  Owner     = "kanei"
+}
