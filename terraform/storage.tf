@@ -20,6 +20,24 @@ resource "kubernetes_storage_class_v1" "gp3" {
   depends_on = [module.eks]
 }
 
+resource "kubernetes_storage_class_v1" "ebs_sc" {
+  metadata {
+    name = "ebs-sc"
+  }
+
+  storage_provisioner    = "ebs.csi.aws.com"
+  reclaim_policy         = "Delete"
+  volume_binding_mode    = "WaitForFirstConsumer"
+  allow_volume_expansion = true
+
+  parameters = {
+    type   = "gp3"
+    fsType = "ext4"
+  }
+
+  depends_on = [module.eks]
+}
+
 resource "kubernetes_annotations" "gp2_not_default" {
   api_version = "storage.k8s.io/v1"
   kind        = "StorageClass"
