@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo does
 
-Provisions an AWS EKS cluster (hybrid: Fargate + managed nodegroup) with **Terraform**, then configures it with **Ansible** to install ArgoCD and apply a single root Application. That root Application pulls everything else from a separate manifest repo: <https://github.com/kanei0415/ktcloud-k8s-argocd-manifest> (path `Setup/`, recursive). The downstream repo bootstraps three ApplicationSets (`Addons`: Postgres/Redis/Kafka, `Apps`: KTCloudMarket, `Charts`: Traefik).
+Provisions an AWS EKS cluster (hybrid: Fargate + managed nodegroup) with **Terraform**, then configures it with **Ansible** to install ArgoCD and apply a single root Application. That root Application pulls everything else from a separate manifest repo: <https://github.com/kanei0415/ktcloud-argocd-eks-manifest> (path `bootstrap/`, recursive). That repo follows the **app-of-apps** layout: `bootstrap/` fans out `projects/` (the `platform` + `market` AppProjects, sync-wave -10), a `platform/*` ApplicationSet (Istio, kube-prometheus-stack, EFK, Kafka/Strimzi, KEDA, Gatekeeper, Falco, Chaos Mesh, cluster-autoscaler, external-secrets, Traefik, …), and an `applications/` ApplicationSet (the 5 KTCloudMarket microservices + frontend, multi-source from the `ktcloud-msa-chart` + `ktcloud-msa-values` repos). The EBS CSI driver + `ebs-sc` StorageClass are supplied by Terraform here (not by the manifest repo).
 
 Cluster identity: account `208876571165`, region `ap-northeast-2`, cluster name `ktcloud-eks`.
 
@@ -74,7 +74,7 @@ ansible-playbook -e helm_version=3.17.3 playbooks/bootstrap.yml       # override
 ## File layout cheat sheet
 
 - `terraform/versions.tf` — provider pins + S3 backend (S3-native lock)
-- `terraform/eks.tf` — EKS module, Fargate profiles, managed nodegroup, addons, EBS CSI IRSA
+- `terraform/eks.tf` — EKS module, Fargate profiles, managed nodegroup (CA auto-discovery tags), addons (vpc-cni with `enableNetworkPolicy`), and IRSA roles: EBS CSI, cluster-autoscaler (`ktcloud-eks-cluster-autoscaler`), external-secrets (`ktcloud-eks-external-secrets`)
 - `terraform/storage.tf` — gp3 default StorageClass + gp2 demotion
 - `terraform/variables.tf` — every knob (region, project, cluster_version, sizing, `fargate_namespaces`)
 - `ansible/group_vars/all.yml` — single source of truth for cluster name, region, helm pin, ArgoCD chart version, manifest repo URL

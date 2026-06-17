@@ -35,24 +35,24 @@ variable "fargate_namespaces" {
 }
 
 variable "nodegroup_instance_types" {
-  description = "Instance types for the managed nodegroup that runs stateful workloads and DaemonSets."
+  description = "Instance types for the managed nodegroup that runs stateful workloads and DaemonSets. Sized for the full platform stack (Istio, kube-prometheus-stack, EFK, Kafka, KEDA, Gatekeeper, Falco, Chaos Mesh)."
   type        = list(string)
-  default     = ["t3.medium"]
+  default     = ["t3.xlarge"]
 }
 
 variable "nodegroup_min_size" {
   type    = number
-  default = 2
+  default = 3
 }
 
 variable "nodegroup_max_size" {
   type    = number
-  default = 4
+  default = 8
 }
 
 variable "nodegroup_desired_size" {
   type    = number
-  default = 2
+  default = 4
 }
 
 variable "tags" {

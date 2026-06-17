@@ -28,6 +28,12 @@ module "eks" {
     }
     vpc-cni = {
       most_recent = true
+      # Enable in-cluster NetworkPolicy enforcement. The MSA chart emits per-service
+      # NetworkPolicies and the manifest repo ships a default-deny baseline; the VPC
+      # CNI network-policy agent is what actually enforces them on EKS.
+      configuration_values = jsonencode({
+        enableNetworkPolicy = "true"
+      })
     }
     aws-ebs-csi-driver = {
       most_recent              = true
@@ -58,6 +64,12 @@ module "eks" {
       labels = {
         role = "workloads"
       }
+
+      # Cluster Autoscaler auto-discovery (platform/20-cluster-autoscaler).
+      tags = {
+        "k8s.io/cluster-autoscaler/enabled"               = "true"
+        "k8s.io/cluster-autoscaler/${local.cluster_name}" = "owned"
+      }
     }
   }
 }
@@ -73,6 +85,44 @@ module "ebs_csi_irsa" {
     main = {
       provider_arn               = module.eks.oidc_provider_arn
       namespace_service_accounts = ["kube-system:ebs-csi-controller-sa"]
+    }
+  }
+}
+
+# IRSA for the Cluster Autoscaler addon (platform/20-cluster-autoscaler).
+# The Helm values annotate the `kube-system:cluster-autoscaler` SA with this
+# role's ARN (arn:aws:iam::<acct>:role/ktcloud-eks-cluster-autoscaler).
+module "cluster_autoscaler_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.48"
+
+  role_name                        = "${var.project}-cluster-autoscaler"
+  attach_cluster_autoscaler_policy = true
+  cluster_autoscaler_cluster_names = [local.cluster_name]
+
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:cluster-autoscaler"]
+    }
+  }
+}
+
+# IRSA for External Secrets Operator (platform/40-external-secrets).
+# The Helm values annotate the `external-secrets:external-secrets` SA with this
+# role's ARN (arn:aws:iam::<acct>:role/ktcloud-eks-external-secrets); the
+# ClusterSecretStore `aws-secrets` then reads AWS Secrets Manager via JWT auth.
+module "external_secrets_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.48"
+
+  role_name                      = "${var.project}-external-secrets"
+  attach_external_secrets_policy = true
+
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["external-secrets:external-secrets"]
     }
   }
 }

@@ -21,4 +21,7 @@ argocd_values_file: "{{ playbook_dir }}/../files/argocd-values.yaml"
 argocd_root_app_name: root-app
 argocd_manifest_repo_url: https://github.com/kanei0415/ktcloud-argocd-eks-manifest.git
 argocd_manifest_repo_revision: HEAD
-argocd_root_path: Setup
+# The manifest repo follows the app-of-apps layout: root-app points at bootstrap/,
+# which fans out projects/ (wave -10), the platform/* ApplicationSet, and the
+# applications/ ApplicationSet. (Was `Setup` under the old thin layout.)
+argocd_root_path: bootstrap
